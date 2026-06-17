@@ -1,4 +1,4 @@
-# Cinema App 🎬
+# Cinema App 
 
 Web app for booking cinema tickets online.
 Connected to world movie API with search by genre and title.
