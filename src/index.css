@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+/* ─── Светлая тема (по умолчанию) ─────────────────────────────── */
+:root {
+    /* Градиент фона — меняется через JS/CSS custom property */
+    --bg-from: #f0f4ff;
+    --bg-to:   #fdf0ff;
+    --bg-gradient: linear-gradient(135deg, var(--bg-from) 0%, var(--bg-to) 100%);
+
+    /* Поверхности */
+    --surface:       #ffffff;
+    --surface-2:     #f1f3f8;
+    --surface-3:     #e8ecf4;
+
+    /* Текст */
+    --fg:            #0f1117;
+    --fg-muted:      #6b7280;
+    --fg-subtle:     #9ca3af;
+
+    /* Граница */
+    --border:        rgba(0, 0, 0, 0.08);
+    --border-strong: rgba(0, 0, 0, 0.14);
+
+    /* Акцент */
+    --accent:        #facc15;
+    --accent-hover:  #fde047;
+    --accent-fg:     #000000;
+
+    /* Навбар */
+    --navbar-bg:     rgba(255, 255, 255, 0.88);
+    --sidebar-bg:    #ffffff;
+}
+
+/* ─── Тёмная тема ──────────────────────────────────────────────── */
+.dark {
+    --bg-from: #0d0f14;
+    --bg-to:   #12101a;
+    --bg-gradient: linear-gradient(135deg, var(--bg-from) 0%, var(--bg-to) 100%);
+
+    --surface:       #16181f;
+    --surface-2:     #1e2029;
+    --surface-3:     #252836;
+
+    --fg:            #f0f2f8;
+    --fg-muted:      #8b93a8;
+    --fg-subtle:     #4b5263;
+
+    --border:        rgba(255, 255, 255, 0.07);
+    --border-strong: rgba(255, 255, 255, 0.12);
+
+    --accent:        #facc15;
+    --accent-hover:  #fde047;
+    --accent-fg:     #000000;
+
+    --navbar-bg:     rgba(13, 15, 20, 0.88);
+    --sidebar-bg:    #111318;
+}
+
+/* ─── Базовые стили ────────────────────────────────────────────── */
+html {
+    color-scheme: light;
+}
+html.dark {
+    color-scheme: dark;
+}
+
+body {
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    color: var(--fg);
+    min-height: 100vh;
+}
