@@ -1,7 +1,7 @@
 # Cinema App 
 
 Web app for booking cinema tickets online.
-Connected to world movie API with search by title and filtering.
+Connected to world TMDB movie API with search by title and filtering.
 
 ## Features
 - Browse movies in cinemas and beyond
