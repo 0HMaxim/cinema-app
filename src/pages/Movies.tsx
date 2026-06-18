@@ -12,9 +12,7 @@ const TABS_LABELS: Record<string, Record<string, string>> = {
     ru: { now: 'Сейчас в кино', soon: 'Скоро в прокате', archive: 'Архив' },
 }
 const PAGE_TITLE:  Record<string, string> = { uk: 'Фільми',    en: 'Movies',      ru: 'Фильмы'     }
-const HOME_LABEL:  Record<string, string> = { uk: 'Головна',   en: 'Home',        ru: 'Главная'    }
 const CLEAR_LABEL: Record<string, string> = { uk: 'Усі фільми',en: 'All movies',  ru: 'Все фильмы' }
-const GENRE_LBL:   Record<string, string> = { uk: 'Жанр',      en: 'Genre',       ru: 'Жанр'       }
 
 interface Movie {
     id: number
@@ -124,15 +122,10 @@ export default function Movies() {
 
     const tabs = TABS_LABELS[lang]
 
-    const breadcrumbItems = [
-        { label: HOME_LABEL[lang], to: '/' },
-        genreId ? { label: PAGE_TITLE[lang], to: '/movie' } : { label: PAGE_TITLE[lang] },
-        ...(genreId ? [{ label: `${GENRE_LBL[lang]}: ${genreName}` }] : []),
-    ]
 
     return (
         <div style={{ minHeight: '100vh', color: 'var(--fg)' }}>
-            <Breadcrumbs items={breadcrumbItems} />
+            <Breadcrumbs />
 
             <div style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 24px' }}>
 

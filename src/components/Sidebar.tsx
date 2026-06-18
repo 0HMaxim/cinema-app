@@ -14,6 +14,7 @@ interface SidebarProps {
     onClose: () => void
 }
 
+
 export default function Sidebar({ open, onClose }: SidebarProps) {
     const { lang } = useApp()
 

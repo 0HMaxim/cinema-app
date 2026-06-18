@@ -133,6 +133,8 @@ export default function Navbar({ sidebarOpen, onToggleSidebar }: NavbarProps) {
                 </div>
 
                 {/* Дропдаун */}
+
+
                 {dropdownOpen && results.length > 0 && (
                     <div style={{
                         position: 'absolute', top: 48, left: 0, right: 0, zIndex: 50,
@@ -177,6 +179,7 @@ export default function Navbar({ sidebarOpen, onToggleSidebar }: NavbarProps) {
                     </div>
                 )}
 
+
                 {dropdownOpen && query && results.length === 0 && !searching && (
                     <div style={{
                         position: 'absolute', top: 48, left: 0, right: 0, zIndex: 50,
@@ -191,6 +194,25 @@ export default function Navbar({ sidebarOpen, onToggleSidebar }: NavbarProps) {
 
             {/* Правая часть */}
             <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+
+                <Link
+                    to="/admin/cinemas"
+                    style={{
+                        height: 36, padding: '0 14px',
+                        borderRadius: 10,
+                        border: '1px solid var(--border-strong)',
+                        background: 'var(--surface-2)',
+                        color: 'var(--fg-muted)',
+                        fontSize: 13, fontWeight: 500,
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        textDecoration: 'none',
+                        transition: 'color 0.15s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--fg)')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg-muted)')}
+                >
+                    ⚙️ Адмін
+                </Link>
 
                 {/* Язык */}
                 <div style={{

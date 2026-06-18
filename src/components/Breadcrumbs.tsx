@@ -1,20 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
 
-// ─────────────────────────────────────────────────────────────────
-// Варіант 1: Ручне задання items (рекомендується)
-//
-// Використання:
-//   <Breadcrumbs items={[
-//     { label: 'Головна', to: '/' },
-//     { label: 'Фільми',  to: '/movie' },
-//     { label: movie.title },            // ← останній без "to" = поточна сторінка
-//   ]} />
-//
-// Варіант 2: Авто-генерація з URL (якщо items не передано)
-//   <Breadcrumbs />
-//   → Головна › movie › 123
-// ─────────────────────────────────────────────────────────────────
-
 interface BreadcrumbItem {
     label: string
     to?: string
@@ -25,47 +10,45 @@ interface BreadcrumbsProps {
     className?: string
 }
 
-// Мапа авто-підписів для сегментів URL (для Варіанту 2)
-const SEGMENT_LABELS: Record<string, string> = {
-    movie: 'Фільми',
-    promotions: 'Акції',
-    cinemas: 'Кінотеатри',
-    about: 'Про нас',
+// Маппинг сегмент URL → { label, linkTo }
+// linkTo может отличаться от реального пути (movie → /movies)
+const SEGMENT_MAP: Record<string, { label: string; to?: string }> = {
+    movie:      { label: 'Фільми',      to: '/movies'  },
+    movies:     { label: 'Фільми',      to: '/movies'  },
+    cart:       { label: 'Кошик',       to: '/cart'  },
+    cinema:     { label: 'Кінотеатри',  to: '/cinemas' },
+    cinemas:    { label: 'Кінотеатри',  to: '/cinemas' },
+    promotions: { label: 'Акції',       to: '/promotions' },
+    about:      { label: 'Про нас',     to: '/about'   },
 }
 
 export default function Breadcrumbs({ items, className = '' }: BreadcrumbsProps) {
     const location = useLocation()
 
-    // Якщо items не передано — будуємо авто з URL
     const resolvedItems: BreadcrumbItem[] = items ?? buildAutoItems(location.pathname)
 
-    if (resolvedItems.length <= 1) return null // не показуємо на головній
+    if (resolvedItems.length <= 1) return null
 
     return (
         <nav
             aria-label="breadcrumb"
-            className={`flex items-center gap-1 flex-wrap text-sm py-3 px-6 border-b  ${className}`}
+            className={`flex  items-center gap-1 flex-wrap text-sm py-6 bg-  ${className}`}
         >
+
             {resolvedItems.map((item, i) => {
                 const isLast = i === resolvedItems.length - 1
-
                 return (
-                    <span key={i} className="flex items-center gap-1">
-                        {/* Роздільник */}
-                        {i > 0 && (
-                            <span className="select-none text-xs">›</span>
-                        )}
+                    <span key={i} className="flex items-center gap-1 text-zinc-500">
+                        {i > 0 && <span className="select-none text-xs text-zinc-700">›</span>}
 
                         {isLast ? (
-                            // Поточна сторінка — не посилання
-                            <span className="font-semibold tracking-wide">
+                            <span className="text-white font-medium truncate max-w-[200px]">
                                 {item.label}
                             </span>
                         ) : (
-                            // Попередні — посилання
                             <Link
                                 to={item.to ?? '/'}
-                                className="transition-colors duration-150 tracking-wide"
+                                className="hover:text-white transition-colors duration-150"
                             >
                                 {item.label}
                             </Link>
@@ -77,18 +60,26 @@ export default function Breadcrumbs({ items, className = '' }: BreadcrumbsProps)
     )
 }
 
-// ─── Авто-побудова з pathname ──────────────────────────────────
 function buildAutoItems(pathname: string): BreadcrumbItem[] {
     const segments = pathname.split('/').filter(Boolean)
-
     const items: BreadcrumbItem[] = [{ label: 'Головна', to: '/' }]
 
     segments.forEach((seg, i) => {
-        const path = '/' + segments.slice(0, i + 1).join('/')
+        const mapped = SEGMENT_MAP[seg]
         const isLast = i === segments.length - 1
-        const label = SEGMENT_LABELS[seg] ?? seg
 
-        items.push(isLast ? { label } : { label, to: path })
+        if (mapped) {
+            // Известный сегмент — используем красивый label и корректный to
+            items.push(isLast ? { label: mapped.label } : { label: mapped.label, to: mapped.to })
+        } else {
+            // Числовой ID или неизвестный сегмент — пропускаем в авто-режиме
+            // (для страниц с :id лучше передавать items вручную)
+            if (!isLast) {
+                const path = '/' + segments.slice(0, i + 1).join('/')
+                items.push({ label: seg, to: path })
+            }
+            // Последний сегмент (id) не добавляем — он будет заменён названием фильма/кинотеатра
+        }
     })
 
     return items

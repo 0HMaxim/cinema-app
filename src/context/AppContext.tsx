@@ -30,9 +30,12 @@ interface AppContextValue {
     gradients: Record<Theme, GradientConfig>
     setGradient: (theme: Theme, config: GradientConfig) => void
     t: (key: string) => string
+    // selectedCinemaId: string | null
+    // setSelectedCinemaId: (id: string | null) => void
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
+
 
 export function AppProvider({ children }: { children: ReactNode }) {
     const [lang,  setLang]  = useState<Lang>(() =>
@@ -47,7 +50,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (saved) return JSON.parse(saved)
         } catch {}
         return DEFAULT_GRADIENTS
+
     })
+
+
+    // const [selectedCinemaId, setSelectedCinemaId] = useState<string | null>(
+    //     () => localStorage.getItem('selectedCinemaId') ?? null
+    // )
+    //
+    // useEffect(() => {
+    //     if (selectedCinemaId) localStorage.setItem('selectedCinemaId', selectedCinemaId)
+    //     else localStorage.removeItem('selectedCinemaId')
+    // }, [selectedCinemaId])
 
     // Persist
     useEffect(() => { localStorage.setItem('lang',  lang)  }, [lang])
