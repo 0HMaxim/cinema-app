@@ -1,13 +1,11 @@
 // src/pages/cart/Concession.tsx
 
-import type {ConcessionItem} from "../../models/order.ts";
-
-import {useEffect, useState} from 'react'
+import type { ConcessionItem } from '../../models/order.ts'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-
-
-import {db} from "../../firebase.ts";
-import {collection, onSnapshot} from "firebase/firestore";
+import { db } from '../../firebase.ts'
+import { collection, onSnapshot } from 'firebase/firestore'
+import CartPageLayout from "../../layouts/CartPageLayout.tsx";
 
 
 
@@ -15,229 +13,166 @@ export default function Concession() {
     const navigate = useNavigate()
     const { orderId } = useParams()
 
-    const [items, setItems] = useState<ConcessionItem[]>([])
+    const [items,    setItems]    = useState<ConcessionItem[]>([])
     const [products, setProducts] = useState<ConcessionItem[]>([])
 
-
-    const ticketsCart = JSON.parse(
+    const ticketsCart = useMemo(() => JSON.parse(
         sessionStorage.getItem('cart_seats') ?? '{"seats":[]}'
-    )
+    ), [])
 
-    const ticketsTotal =
+    const ticketsTotal: number =
         ticketsCart.seats?.reduce(
-            (sum: number, seat: any) => sum + seat.price,
-            0
+            (sum: number, seat: any) => sum + seat.price, 0
         ) ?? 0
 
-
-
+    // Читаємо мета-дані сеансу зі збереженого кошика (cinemaId_sessionId)
+    // Якщо хочеш — можна завантажити з Firestore, але для лейауту достатньо
+    // того що вже є в cart_seats
+    const sessionMeta = useMemo(() => {
+        const raw = sessionStorage.getItem('cart_session_meta')
+        return raw ? JSON.parse(raw) : null
+    }, [])
 
     useEffect(() => {
-        const unsub = onSnapshot(
-            collection(db, 'concessions'),
-            snapshot => {
-                setProducts(
-                    snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    })) as ConcessionItem[]
-                )
-            }
-        )
-
+        const unsub = onSnapshot(collection(db, 'concessions'), snapshot => {
+            setProducts(
+                snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as ConcessionItem[]
+            )
+        })
         return () => unsub()
     }, [])
 
-    function changeQuantity(
-        product: Omit<ConcessionItem, 'quantity'>,
-        delta: number
-    ) {
+    function changeQuantity(product: Omit<ConcessionItem, 'quantity'>, delta: number) {
         setItems(prev => {
             const existing = prev.find(i => i.id === product.id)
-
-            if (!existing && delta > 0) {
-                return [...prev, { ...product, quantity: 1 }]
-            }
-
+            if (!existing && delta > 0) return [...prev, { ...product, quantity: 1 }]
             return prev
                 .map(item =>
                     item.id === product.id
-                        ? {
-                            ...item,
-                            quantity: Math.max(
-                                0,
-                                item.quantity + delta
-                            )
-                        }
+                        ? { ...item, quantity: Math.max(0, item.quantity + delta) }
                         : item
                 )
                 .filter(item => item.quantity > 0)
         })
     }
 
-    const total = items.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0
-    )
+    const concessionTotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+    const grandTotal       = ticketsTotal + concessionTotal
 
     function handleContinue() {
-        sessionStorage.setItem(
-            'cart_concessions',
-            JSON.stringify(items)
-        )
-
+        sessionStorage.setItem('cart_concessions', JSON.stringify(items))
         navigate(`/cart/${orderId}/checkout`)
     }
 
-    const grandTotal = ticketsTotal + total
+    // ── Sidebar summary content ──────────────────────────────────────────────
+    const sidebarContent = (
+        <>
+            {/* Tickets */}
+            {ticketsCart.seats?.map((seat: any) => (
+                <div key={`${seat.row}_${seat.seat}`}
+                     className="flex justify-between text-sm py-1 border-b border-white/5">
+                    <span className="font-mono font-semibold">{seat.label}</span>
+                    <span className="text-zinc-300">{seat.price}₴</span>
+                </div>
+            ))}
 
+            {/* Concessions */}
+            {items.length > 0 && (
+                <>
+                    <div className="border-t border-white/10 my-2" />
+                    {items.map(item => (
+                        <div key={item.id}
+                             className="flex justify-between text-sm py-1 border-b border-white/5">
+                            <span className="text-zinc-300">{item.name} × {item.quantity}</span>
+                            <span className="text-zinc-300">{item.price * item.quantity}₴</span>
+                        </div>
+                    ))}
+                </>
+            )}
+        </>
+    )
+
+    // ── Fallback session info (якщо немає мета) ──────────────────────────────
+    const sessionInfo = {
+        movieTitle:  sessionMeta?.movieTitle  ?? '—',
+        cinemaName:  sessionMeta?.cinemaName  ?? '—',
+        hallName:    sessionMeta?.hallName    ?? '—',
+        date:        sessionMeta?.date        ?? '—',
+        time:        sessionMeta?.time        ?? '—',
+        endTime:     sessionMeta?.endTime     ?? null,
+        format:      sessionMeta?.format      ?? '—',
+        backHref:    `/cart/${orderId}/seatplan`,
+    }
 
     return (
-        <div className="max-w-6xl mx-auto px-4 py-8">
-
-            <div className="flex items-center justify-between mb-8">
-                <h1 className="text-2xl font-bold">
-                    Snacks & Drinks
-                </h1>
-
-                <span className="text-zinc-400 text-sm">
-                    Optional
-                </span>
+        <CartPageLayout
+            session={sessionInfo}
+            sidebar={{
+                content:     sidebarContent,
+                total:       grandTotal,
+                ctaLabel:    `Далі → ${grandTotal}₴`,
+                onCta:       handleContinue,
+                note:        'Можна пропустити цей крок',
+            }}
+            mobileBar={
+                <div className="fixed bottom-0 inset-x-0 lg:hidden bg-zinc-900/95 backdrop-blur border-t border-white/10 px-4 py-3 flex items-center gap-3 z-30">
+                    <div className="flex-1 min-w-0">
+                        <p className="text-xs text-zinc-500">{items.length} позицій</p>
+                        <p className="text-base font-bold">{grandTotal}₴</p>
+                    </div>
+                    <button
+                        onClick={handleContinue}
+                        className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-sm transition-colors"
+                    >
+                        Далі →
+                    </button>
+                </div>
+            }
+        >
+            {/* ── Snack grid ───────────────────────────────────────── */}
+            <div className="flex items-center justify-between mb-6">
+                <h1 className="text-xl font-bold">Snacks & Drinks</h1>
+                <button
+                    onClick={() => navigate(`/cart/${orderId}/checkout`)}
+                    className="text-xs text-zinc-500 hover:text-white transition-colors"
+                >
+                    Пропустити →
+                </button>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-
+            <div className="grid sm:grid-cols-2 gap-4">
                 {products.map(product => {
-                    const quantity =
-                        items.find(i => i.id === product.id)
-                            ?.quantity ?? 0
+                    const quantity = items.find(i => i.id === product.id)?.quantity ?? 0
 
                     return (
-                        <div
-                            key={product.id}
-                            className="rounded-2xl border border-white/10 bg-white/5 p-5"
-                        >
-                            <div className="text-5xl mb-3">
-                                {product.image}
+                        <div key={product.id}
+                             className="rounded-2xl border border-white/10 bg-white/5 p-5 flex items-center gap-4">
+                            <span className="text-4xl">{product.image}</span>
+
+                            <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm">{product.name}</p>
+                                <p className="text-zinc-400 text-xs mt-0.5">{product.price}₴</p>
                             </div>
 
-                            <h3 className="font-semibold">
-                                {product.name}
-                            </h3>
-
-                            <p className="text-zinc-400 text-sm mt-1">
-                                {product.price} ₴
-                            </p>
-
-                            <div className="flex items-center gap-3 mt-5">
-
+                            <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() =>
-                                        changeQuantity(product, -1)
-                                    }
-                                    className="w-9 h-9 rounded-lg bg-zinc-800"
+                                    onClick={() => changeQuantity(product, -1)}
+                                    className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-sm transition-colors"
                                 >
-                                    -
+                                    −
                                 </button>
-
-                                <span className="font-semibold">
-                                    {quantity}
-                                </span>
-
+                                <span className="w-5 text-center font-semibold text-sm">{quantity}</span>
                                 <button
-                                    onClick={() =>
-                                        changeQuantity(product, 1)
-                                    }
-                                    className="w-9 h-9 rounded-lg bg-red-600"
+                                    onClick={() => changeQuantity(product, 1)}
+                                    className="w-8 h-8 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold text-sm transition-colors"
                                 >
                                     +
                                 </button>
-
                             </div>
                         </div>
                     )
                 })}
             </div>
-
-            <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-5">
-
-
-
-                <div className="lg:sticky lg:top-20 h-fit">
-
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-
-                        <h2 className="font-semibold mb-4">
-                            Your Order
-                        </h2>
-
-                        {ticketsCart.seats?.map((seat: any) => (
-                            <div
-                                key={`${seat.row}_${seat.seat}`}
-                                className="flex justify-between text-sm mb-2"
-                            >
-                                <span>{seat.label}</span>
-                                <span>{seat.price} ₴</span>
-                            </div>
-                        ))}
-
-                        {items.length > 0 && (
-                            <>
-                                <div className="border-t border-white/10 my-4" />
-
-                                {items.map(item => (
-                                    <div
-                                        key={item.id}
-                                        className="flex justify-between text-sm mb-2"
-                                    >
-                        <span>
-                            {item.name} × {item.quantity}
-                        </span>
-
-                                        <span>
-                            {item.price * item.quantity} ₴
-                        </span>
-                                    </div>
-                                ))}
-                            </>
-                        )}
-
-                        <div className="border-t border-white/10 mt-4 pt-4 flex justify-between font-bold">
-                            <span>Total</span>
-                            <span>{grandTotal} ₴</span>
-                        </div>
-
-                        <button
-                            onClick={handleContinue}
-                            className="w-full mt-4 py-3 rounded-xl bg-red-600"
-                        >
-                            Continue →
-                        </button>
-
-                    </div>
-
-                </div>
-
-
-
-
-                <button
-                    onClick={handleContinue}
-                    className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 transition-colors"
-                >
-                    Continue to Checkout →
-                </button>
-
-                <button
-                    onClick={() =>
-                        navigate(`/cart/${orderId}/checkout`)
-                    }
-                    className="w-full mt-3 py-3 rounded-xl border border-white/10"
-                >
-                    Skip
-                </button>
-
-            </div>
-        </div>
+        </CartPageLayout>
     )
 }

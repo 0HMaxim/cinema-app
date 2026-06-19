@@ -1,3 +1,4 @@
+// ✅ order.ts хранится внутри Cinema
 import type {SeatCategory} from "./cinema.ts";
 
 export interface Order {

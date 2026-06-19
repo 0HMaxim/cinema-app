@@ -21,6 +21,7 @@ const TRANSLATIONS: Record<Lang, Record<string, string>> = {
     ru: { search: 'Поиск фильмов...',  login: 'Войти'  },
 }
 
+
 // ─── Контекст ────────────────────────────────────────────────────
 interface AppContextValue {
     lang: Lang
@@ -30,8 +31,10 @@ interface AppContextValue {
     gradients: Record<Theme, GradientConfig>
     setGradient: (theme: Theme, config: GradientConfig) => void
     t: (key: string) => string
-    // selectedCinemaId: string | null
-    // setSelectedCinemaId: (id: string | null) => void
+    selectedCinemaId: string | null
+    setSelectedCinemaId: (id: string | null) => void
+    orderId: string | null          // ← добавь
+    setOrderId: (id: string | null) => void  // ← добавь
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
@@ -53,15 +56,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     })
 
+    const [orderId, setOrderId] = useState<string | null>(null)
 
-    // const [selectedCinemaId, setSelectedCinemaId] = useState<string | null>(
-    //     () => localStorage.getItem('selectedCinemaId') ?? null
-    // )
-    //
-    // useEffect(() => {
-    //     if (selectedCinemaId) localStorage.setItem('selectedCinemaId', selectedCinemaId)
-    //     else localStorage.removeItem('selectedCinemaId')
-    // }, [selectedCinemaId])
+    const [selectedCinemaId, setSelectedCinemaId] = useState<string | null>(
+        () => localStorage.getItem('selectedCinemaId') ?? null
+    )
+
+    useEffect(() => {
+        if (selectedCinemaId) localStorage.setItem('selectedCinemaId', selectedCinemaId)
+        else localStorage.removeItem('selectedCinemaId')
+    }, [selectedCinemaId])
 
     // Persist
     useEffect(() => { localStorage.setItem('lang',  lang)  }, [lang])
@@ -85,7 +89,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const translate = (key: string) => TRANSLATIONS[lang][key] ?? key
 
     return (
-        <AppContext.Provider value={{ lang, setLang, theme, toggleTheme, gradients, setGradient, t: translate }}>
+        <AppContext.Provider value={{ lang, setLang, theme, toggleTheme, gradients, setGradient, t: translate,
+            selectedCinemaId,
+            setSelectedCinemaId,
+            orderId, setOrderId,
+        }}>
             {children}
         </AppContext.Provider>
     )

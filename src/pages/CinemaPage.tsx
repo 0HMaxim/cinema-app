@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 import type { Cinema, Session } from '../models/cinema.ts'
+import Breadcrumbs from "../components/Breadcrumbs.tsx";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -68,7 +69,7 @@ function SessionBtn({
 
     return (
         <button
-            onClick={() => navigate(`/cart/${currentCinemaId}_${session}/seatplan`)}
+            onClick={() => navigate(`/cart/${session.cinemaId}_${session.id}/seatplan`)}
             className="relative flex flex-col items-center px-3 py-2 rounded-xl border transition-all duration-150 min-w-[72px] group"
             style={{ borderColor: `${color}33`, background: `${color}11` }}
             onMouseEnter={e => {
@@ -288,6 +289,9 @@ export default function CinemaPage() {
     return (
         <div className="min-h-screen text-white">
 
+            <Breadcrumbs/>
+
+
             {/* ── Hero ─────────────────────────────────────────────────── */}
             <div className="relative mx-auto mt-6 rounded-2xl overflow-hidden h-64" style={{ maxWidth: '90%' }}>
                 <img
@@ -311,16 +315,7 @@ export default function CinemaPage() {
             </div>
 
             {/* ── Контент ──────────────────────────────────────────────── */}
-            <div className="mx-auto pb-20 space-y-6" style={{ maxWidth: '90%' }}>
-
-                {/* Хлебные крошки */}
-                <div className="flex items-center gap-2 pt-4 text-sm text-zinc-500">
-                    <Link to="/" className="hover:text-zinc-300 transition-colors">Multiplex</Link>
-                    <span>›</span>
-                    <Link to="/cinemas" className="hover:text-zinc-300 transition-colors">Кінотеатри</Link>
-                    <span>›</span>
-                    <span className="text-white">{currentCinema.name}</span>
-                </div>
+            <div className="mx-auto pb-20 space-y-6 mt-6" style={{ maxWidth: '90%' }}>
 
                 {/* ── Дата-табы ─────────────────────────────────────────── */}
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">

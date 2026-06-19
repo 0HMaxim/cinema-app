@@ -1,5 +1,6 @@
-export type SeatCategory = 'STANDARD' | 'LUX' | 'SUPER_LUX' | 'CHILL_OUT' | 'VIP'
+// ✅ cinema.ts хранится внутри Cinema
 
+export type SeatCategory = 'STANDARD' | 'LUX' | 'SUPER_LUX' | 'CHILL_OUT' | 'VIP'
 export interface Cinema {
     id: string
     name: string

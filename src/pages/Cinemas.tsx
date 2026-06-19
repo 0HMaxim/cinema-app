@@ -233,7 +233,7 @@ export default function Cinemas() {
 
     return (
         <div className="min-h-screen text-white">
-            <Breadcrumbs />
+            <Breadcrumbs/>
 
 
             {/* ── Карта ──────────────────────────────────────────────────── */}
