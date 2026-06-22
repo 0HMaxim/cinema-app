@@ -1,20 +1,15 @@
-// ✅ cinema.ts хранится внутри Cinema
+// cinema.ts
+import type {Hall} from "./hall.ts";
 
-export type SeatCategory = 'STANDARD' | 'LUX' | 'SUPER_LUX' | 'CHILL_OUT' | 'VIP'
+// cinema.ts
 export interface Cinema {
     id: string
     name: string
     city: string
+    cityKey: string
     address: string
     halls: Hall[]
-    sessions: Session[]   // ✅ Session хранится внутри Cinema
-}
-
-export interface Hall {
-    id: string
-    name: string
-    format: string        // "IMAX L 2D", "SDH", "ATMOS LUX"
-    seats: Seat[]         // все места — каждое со своей категорией и ценой
+    sessions: Session[]
 }
 
 export interface Session {
@@ -25,15 +20,8 @@ export interface Session {
     date: string
     time: string
     format: string
-    bookedSeats: {        // какие места уже куплены
+    bookedSeats: {        // Bought seets
         row: number
         seat: number
     }[]
-}
-
-export interface Seat {
-    row: number
-    seat: number
-    category: SeatCategory
-    price: number
 }

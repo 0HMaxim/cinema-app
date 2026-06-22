@@ -6,8 +6,6 @@ import { db } from '../../firebase'
 import type { Cinema, Session, Hall, Seat, SeatCategory } from '../../models/cinema.ts'
 import CartPageLayout from '../../layouts/CartPageLayout.tsx'
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const CATEGORY_META: { category: SeatCategory; label: string; color: string }[] = [
     { category: 'STANDARD',  label: 'Стандарт',  color: '#4b5563' },
     { category: 'LUX',       label: 'Люкс',       color: '#2563eb' },
@@ -26,8 +24,6 @@ const CAT_LABELS = Object.fromEntries(
 
 const ROW_LABELS = 'АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ'.split('')
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface SelectedSeat {
     row:      number
     seat:     number
@@ -35,8 +31,6 @@ interface SelectedSeat {
     price:    number
     label:    string
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function minsToTime(mins: number) {
     return `${String(Math.floor(mins / 60) % 24).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`
@@ -47,13 +41,11 @@ function sessionEndTime(time: string, duration: number) {
     return minsToTime(h * 60 + m + duration)
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
 function LegendDot({ color, label }: { color: string; label: string }) {
     return (
         <div className="flex items-center gap-1.5">
             <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: color }} />
-            <span className="text-xs text-zinc-400">{label}</span>
+            <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{label}</span>
         </div>
     )
 }
@@ -70,8 +62,8 @@ function SeatBtn({ seat, isBooked, isSelected, onMouseDown, onMouseEnter }: {
     let border  = color + '66'
     let opacity = 1
 
-    if (isBooked)        { bg = '#374151'; border = '#374151'; opacity = 0.4 }
-    else if (isSelected) { bg = '#dc2626'; border = '#dc2626' }
+    if (isBooked)        { bg = 'var(--surface-3)'; border = 'var(--border-strong)'; opacity = 0.4 }
+    else if (isSelected) { bg = 'var(--accent)'; border = 'var(--accent)' }
 
     return (
         <button
@@ -86,23 +78,17 @@ function SeatBtn({ seat, isBooked, isSelected, onMouseDown, onMouseEnter }: {
     )
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
-
 export default function SeatPlan() {
     const { orderId } = useParams<{ orderId: string }>()
-
     const navigate    = useNavigate()
-
     const [cinemaId, sessionId] = (orderId ?? '').split('_')
 
     const [cinema,  setCinema]  = useState<Cinema | null>(null)
     const [loading, setLoading] = useState(true)
     const [error,   setError]   = useState<string | null>(null)
-
     const [selected,   setSelected]   = useState<SelectedSeat[]>([])
     const [isDragging, setIsDragging] = useState(false)
 
-    // ── Load ─────────────────────────────────────────────────────────────────
     useEffect(() => {
         if (!cinemaId) { setError('Невірне посилання'); setLoading(false); return }
         getDoc(doc(db, 'cinemas', cinemaId))
@@ -114,7 +100,6 @@ export default function SeatPlan() {
             .finally(() => setLoading(false))
     }, [cinemaId])
 
-    // ── Derived ──────────────────────────────────────────────────────────────
     const session = useMemo<(Session & { durationMinutes?: number }) | null>(() =>
             cinema ? (cinema.sessions ?? []).find(s => s.id === sessionId) ?? null : null
         , [cinema, sessionId])
@@ -139,7 +124,6 @@ export default function SeatPlan() {
     const total          = selected.reduce((s, seat) => s + seat.price, 0)
     const usedCategories = hall ? Array.from(new Set(hall.seats.map(s => s.category))) : []
 
-    // ── Interactions ─────────────────────────────────────────────────────────
     function toggleSeat(row: number, seatNum: number) {
         if (!hall) return
         const key = `${row}_${seatNum}`
@@ -169,7 +153,6 @@ export default function SeatPlan() {
         const endTime = session.durationMinutes
             ? sessionEndTime(session.time, session.durationMinutes)
             : null
-
         sessionStorage.setItem('cart_seats', JSON.stringify({ cinemaId, sessionId, seats: selected }))
         sessionStorage.setItem('cart_session_meta', JSON.stringify({
             movieTitle: session.movieTitle,
@@ -183,18 +166,22 @@ export default function SeatPlan() {
         navigate(`/cart/${orderId}/concession`)
     }
 
-    // ── Guards ────────────────────────────────────────────────────────────────
     if (loading) return (
-        <div className="min-h-screen flex items-center justify-center text-zinc-500 text-sm animate-pulse">
+        <div className="min-h-screen flex items-center justify-center text-sm animate-pulse"
+             style={{ color: 'var(--fg-muted)' }}>
             Завантаження залу…
         </div>
     )
 
     if (error || !cinema || !session || !hall) return (
-        <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-zinc-500">
+        <div className="min-h-screen flex flex-col items-center justify-center gap-4"
+             style={{ color: 'var(--fg-muted)' }}>
             <span className="text-4xl">⚠️</span>
             <p className="text-sm">{error ?? 'Сеанс або зал не знайдено'}</p>
-            <Link to="/cinemas" className="text-red-400 hover:underline text-sm">← До кінотеатрів</Link>
+            <Link to="/cinemas" className="text-sm transition-colors"
+                  style={{ color: 'var(--accent)' }}>
+                ← До кінотеатрів
+            </Link>
         </div>
     )
 
@@ -202,9 +189,9 @@ export default function SeatPlan() {
         ? sessionEndTime(session.time, session.durationMinutes)
         : null
 
-    // ── Sidebar content ───────────────────────────────────────────────────────
+    // ── Sidebar ───────────────────────────────────────────────────────────────
     const sidebarContent = selected.length === 0 ? (
-        <div className="py-6 text-center text-zinc-600 text-xs">
+        <div className="py-6 text-center text-xs" style={{ color: 'var(--fg-subtle)' }}>
             <span className="block text-2xl mb-2">🎭</span>
             Натисніть на місце щоб обрати
         </div>
@@ -214,20 +201,28 @@ export default function SeatPlan() {
                 .sort((a, b) => a.row - b.row || a.seat - b.seat)
                 .map(s => (
                     <div key={`${s.row}_${s.seat}`}
-                         className="flex items-center justify-between text-sm py-1 border-b border-white/5">
+                         className="flex items-center justify-between text-sm py-1 border-b"
+                         style={{ borderColor: 'var(--border)' }}>
                         <div className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full flex-shrink-0"
                                   style={{ background: CAT_COLORS[s.category] }} />
-                            <span className="font-mono font-semibold text-white">{s.label}</span>
-                            <span className="text-xs text-zinc-500">{CAT_LABELS[s.category]}</span>
+                            <span className="font-mono font-semibold" style={{ color: 'var(--fg)' }}>
+                                {s.label}
+                            </span>
+                            <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                {CAT_LABELS[s.category]}
+                            </span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className="text-zinc-300 text-xs">{s.price}₴</span>
+                            <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{s.price}₴</span>
                             <button
                                 onClick={() => setSelected(prev =>
                                     prev.filter(p => !(p.row === s.row && p.seat === s.seat))
                                 )}
-                                className="text-zinc-600 hover:text-red-400 transition-colors text-xs"
+                                className="text-xs transition-colors"
+                                style={{ color: 'var(--fg-subtle)' }}
+                                onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                                onMouseLeave={e => e.currentTarget.style.color = 'var(--fg-subtle)'}
                             >✕</button>
                         </div>
                     </div>
@@ -246,7 +241,6 @@ export default function SeatPlan() {
         backHref:   `/cinema/${cinemaId}`,
     }
 
-    // ── Render ────────────────────────────────────────────────────────────────
     return (
         <CartPageLayout
             session={sessionInfo}
@@ -259,34 +253,38 @@ export default function SeatPlan() {
                 note:        'Місця утримуються 10 хвилин',
             }}
             mobileBar={selected.length > 0 ? (
-                <div className="fixed bottom-0 inset-x-0 lg:hidden bg-zinc-900/95 backdrop-blur
-                                border-t border-white/10 px-4 py-3 flex items-center gap-3 z-30">
+                <div className="fixed bottom-0 inset-x-0 lg:hidden backdrop-blur
+                                border-t px-4 py-3 flex items-center gap-3 z-30"
+                     style={{
+                         background: 'color-mix(in srgb, var(--surface) 95%, transparent)',
+                         borderColor: 'var(--border)',
+                     }}>
                     <div className="flex-1 min-w-0">
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
                             {selected.length} місць · {selected.map(s => s.label).join(', ')}
                         </p>
-                        <p className="text-base font-bold">{total}₴</p>
+                        <p className="text-base font-bold" style={{ color: 'var(--fg)' }}>{total}₴</p>
                     </div>
                     <button
                         onClick={handleContinue}
-                        className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500
-                                   text-white font-semibold text-sm transition-colors"
+                        className="px-6 py-2.5 rounded-xl font-semibold text-sm transition-colors"
+                        style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}
                     >
                         Далі →
                     </button>
                 </div>
             ) : undefined}
         >
-            {/* ── Seat map ── */}
             <div
                 onMouseUp={() => setIsDragging(false)}
                 onMouseLeave={() => setIsDragging(false)}
             >
-                {/* Screen */}
+                {/* Экран */}
                 <div className="mb-6 text-center">
                     <div className="h-1.5 rounded-full mx-auto max-w-xs"
-                         style={{ background: 'linear-gradient(90deg, transparent, #ef4444 30%, #ef4444 70%, transparent)' }} />
-                    <p className="text-[11px] text-zinc-600 mt-1.5 uppercase tracking-widest">Екран</p>
+                         style={{ background: 'linear-gradient(90deg, transparent, var(--accent) 30%, var(--accent) 70%, transparent)' }} />
+                    <p className="text-[0.6875rem] mt-1.5 uppercase tracking-widest"
+                       style={{ color: 'var(--fg-subtle)' }}>Екран</p>
                 </div>
 
                 {/* Grid */}
@@ -294,7 +292,8 @@ export default function SeatPlan() {
                     <div className="inline-block">
                         {Array.from({ length: rows }, (_, i) => i + 1).map(row => (
                             <div key={row} className="flex items-center gap-1.5 mb-1">
-                                <span className="w-5 text-[11px] text-zinc-600 text-right flex-shrink-0 select-none font-mono">
+                                <span className="w-5 text-[0.6875rem] text-right flex-shrink-0 select-none font-mono"
+                                      style={{ color: 'var(--fg-subtle)' }}>
                                     {ROW_LABELS[row - 1] ?? row}
                                 </span>
                                 <div className="flex gap-1">
@@ -314,7 +313,8 @@ export default function SeatPlan() {
                                         )
                                     })}
                                 </div>
-                                <span className="w-5 text-[11px] text-zinc-600 flex-shrink-0 select-none font-mono">
+                                <span className="w-5 text-[0.6875rem] flex-shrink-0 select-none font-mono"
+                                      style={{ color: 'var(--fg-subtle)' }}>
                                     {ROW_LABELS[row - 1] ?? row}
                                 </span>
                             </div>
@@ -323,9 +323,10 @@ export default function SeatPlan() {
                 </div>
 
                 {/* Legend */}
-                <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 border-t border-white/8 pt-4">
-                    <LegendDot color="#dc2626" label="Вибрано" />
-                    <LegendDot color="#374151" label="Зайнято" />
+                <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 border-t pt-4"
+                     style={{ borderColor: 'var(--border)' }}>
+                    <LegendDot color="var(--accent)" label="Вибрано" />
+                    <LegendDot color="var(--surface-3)" label="Зайнято" />
                     {usedCategories.map(cat => (
                         <LegendDot key={cat} color={CAT_COLORS[cat]} label={CAT_LABELS[cat]} />
                     ))}

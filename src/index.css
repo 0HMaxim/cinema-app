@@ -2,40 +2,36 @@
 
 /* ─── Светлая тема (по умолчанию) ─────────────────────────────── */
 :root {
-    /* Градиент фона — меняется через JS/CSS custom property */
     --bg-from: #f0f4ff;
     --bg-to:   #fdf0ff;
-    --bg-gradient: linear-gradient(135deg, var(--bg-from) 0%, var(--bg-to) 100%);
 
-    /* Поверхности */
     --surface:       #ffffff;
     --surface-2:     #f1f3f8;
     --surface-3:     #e8ecf4;
 
-    /* Текст */
     --fg:            #0f1117;
     --fg-muted:      #6b7280;
     --fg-subtle:     #9ca3af;
 
-    /* Граница */
     --border:        rgba(0, 0, 0, 0.08);
     --border-strong: rgba(0, 0, 0, 0.14);
 
-    /* Акцент */
     --accent:        #facc15;
     --accent-hover:  #fde047;
     --accent-fg:     #000000;
+    --accent-bg:     rgba(250, 204, 21, 0.08);
+    --accent-border: rgba(250, 204, 21, 0.45);
 
-    /* Навбар */
     --navbar-bg:     rgba(255, 255, 255, 0.88);
     --sidebar-bg:    #ffffff;
+
+    --shadow:        0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
 /* ─── Тёмная тема ──────────────────────────────────────────────── */
 .dark {
     --bg-from: #0d0f14;
     --bg-to:   #12101a;
-    --bg-gradient: linear-gradient(135deg, var(--bg-from) 0%, var(--bg-to) 100%);
 
     --surface:       #16181f;
     --surface-2:     #1e2029;
@@ -51,9 +47,13 @@
     --accent:        #facc15;
     --accent-hover:  #fde047;
     --accent-fg:     #000000;
+    --accent-bg:     rgba(250, 204, 21, 0.10);
+    --accent-border: rgba(250, 204, 21, 0.40);
 
     --navbar-bg:     rgba(13, 15, 20, 0.88);
     --sidebar-bg:    #111318;
+
+    --shadow:        0 4px 16px rgba(0, 0, 0, 0.45);
 }
 
 /* ─── Базовые стили ────────────────────────────────────────────── */
@@ -65,8 +65,66 @@ html.dark {
 }
 
 body {
-    background: var(--bg-gradient);
-    background-attachment: fixed;
     color: var(--fg);
     min-height: 100vh;
+}
+
+/* Фиксированный фон — GPU-слой, не тормозит скролл */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: var(--bg-gradient, linear-gradient(135deg, var(--bg-from) 0%, var(--bg-to) 100%));
+    transition: background 300ms ease;
+}
+
+/* ─── Глобальный transition — только дешёвые свойства ─────────── */
+/* background-color намеренно исключён — он дорогой на сотнях элементов.
+   Добавляй transition-colors / transition-all точечно на кнопки и карточки. */
+*,
+*::before,
+*::after {
+    transition-property: border-color, color, fill, stroke, box-shadow, opacity;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
+}
+
+/* Исключения — анимации Tailwind и скролл-ряд не трогаем */
+.animate-spin,
+.animate-ping,
+.animate-pulse,
+.poster-row-scroll {
+    transition: none !important;
+}
+
+/* ─── Скроллбар ─────────────────────────────────────────────────── */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) var(--surface-2);
+}
+
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+    background: var(--surface-2);
+}
+
+*::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+    border: 2px solid var(--surface-2);
+    background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+    background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+    background: var(--surface-2);
 }

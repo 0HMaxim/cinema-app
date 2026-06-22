@@ -1,5 +1,4 @@
 // App.tsx
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AppProvider } from './context/AppContext'
 
 import AdminLayout   from './layouts/AdminLayout.tsx'
@@ -15,6 +14,7 @@ import CinemaAdmin from './pages/admin/CinemaAdmin.tsx'
 import SeatPlan    from './pages/cart/Seatplan.tsx'
 import Checkout    from './pages/cart/Checkout.tsx'
 import Concession  from './pages/cart/Concession.tsx'
+import {HashRouter, Route, Routes} from "react-router-dom";
 // в AppContext — добавь в стейт
 
 export default function App() {
@@ -22,7 +22,7 @@ export default function App() {
 
     return (
         <AppProvider>
-            <BrowserRouter>
+            <HashRouter>
                 <Routes>
                     <Route path="/admin" element={<AdminLayout />}>
                         <Route index    element={<CinemaAdmin />} />
@@ -43,7 +43,7 @@ export default function App() {
                         <Route path="/"           element={<Home />} />
                     </Route>
                 </Routes>
-            </BrowserRouter>
+            </HashRouter>
         </AppProvider>
     )
 }

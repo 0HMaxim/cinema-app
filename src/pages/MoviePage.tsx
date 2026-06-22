@@ -4,8 +4,9 @@ import { useApp } from '../context/AppContext'
 import Breadcrumbs from '../components/Breadcrumbs'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
+import { MapPin, Star, Clock, Globe, Film, ChevronRight } from 'lucide-react'
 
-const TMDB_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI0MDI4Nzk1NWNkYWMxN2Y5YTY4YTMzNjQ3YTZkNGZkZSIsIm5iZiI6MTc4MTU2Njk0Ni4zNywic3ViIjoiNmEzMDhkZTJmNDczMDFlMWEwY2MxMzk4Iiwic2NvcGVzIjpbImFwaV9yZWFkIl0sInZlcnNpb24iOjF9.4mLzyZu3z4Ii3gSZz4oWZYTcRlb-rj4ZqZT9s22OvSo'
+const TMDB_TOKEN = import.meta.env.VITE_TMDB_TOKEN
 const LANG_TMDB: Record<string, string> = { uk: 'uk-UA', en: 'en-US', ru: 'ru-RU' }
 
 const FORMAT_COLORS: Record<string, string> = {
@@ -26,7 +27,9 @@ const LABELS: Record<string, Record<string, string>> = {
         cast: 'У головних ролях', watchTrailer: 'Дивитись трейлер', similar: 'Дивіться також',
         sameGenre: 'Фільми у жанрі', comingSoon: 'Скоро в прокаті',
         schedule: 'Розклад сеансів', notFound: 'Фільм не знайдено',
-        allInGenre: 'Всі фільми жанру',
+        allInGenre: 'Всі фільми жанру', city: 'Місто', date: 'Дата',
+        noSessions: 'Немає сеансів на цю дату', tryOther: 'Спробуйте іншу дату або місто',
+        today: 'Сьог',
     },
     en: {
         ageLimit: 'Age rating', year: 'Year', original: 'Original title',
@@ -35,7 +38,9 @@ const LABELS: Record<string, Record<string, string>> = {
         cast: 'Starring', watchTrailer: 'Watch trailer', similar: 'You may also like',
         sameGenre: 'More in genre', comingSoon: 'Coming soon',
         schedule: 'Showtimes', notFound: 'Movie not found',
-        allInGenre: 'All movies in genre',
+        allInGenre: 'All in genre', city: 'City', date: 'Date',
+        noSessions: 'No sessions on this date', tryOther: 'Try another date or city',
+        today: 'Today',
     },
     ru: {
         ageLimit: 'Возрастные ограничения', year: 'Год', original: 'Оригинальное название',
@@ -44,7 +49,9 @@ const LABELS: Record<string, Record<string, string>> = {
         cast: 'В главных ролях', watchTrailer: 'Смотреть трейлер', similar: 'Смотрите также',
         sameGenre: 'Фильмы в жанре', comingSoon: 'Скоро в прокате',
         schedule: 'Расписание сеансов', notFound: 'Фильм не найден',
-        allInGenre: 'Все фильмы жанра',
+        allInGenre: 'Все фильмы жанра', city: 'Город', date: 'Дата',
+        noSessions: 'Нет сеансов на эту дату', tryOther: 'Попробуйте другую дату или город',
+        today: 'Сег',
     },
 }
 
@@ -58,70 +65,49 @@ interface MovieDetail {
 interface CrewMember { name: string; job: string }
 interface CastMember { name: string }
 interface SimilarMovie { id: number; title: string; poster_path: string | null; release_date?: string }
-
 interface ScheduleSession { time: string; format: string; sessionId: string }
-interface ScheduleCinema  { id: string; name: string; city: string; sessions: ScheduleSession[] }
+interface ScheduleCinema { id: string; name: string; city: string; sessions: ScheduleSession[] }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function GenreTags({ genres, onGenreClick, title }: {
-    genres: { id: number; name: string }[]
-    onGenreClick: (id: number, name: string) => void
-    title: string
-}) {
+function MovieGrid({ movies }: { movies: SimilarMovie[] }) {
     return (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {genres.map(g => (
-                <button key={g.id} onClick={() => onGenreClick(g.id, g.name)} title={title}
-                        style={{ padding: '3px 10px', borderRadius: 20, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--fg)', fontSize: 12, cursor: 'pointer', transition: 'all 0.15s' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent-fg)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.color = 'var(--fg)'; e.currentTarget.style.borderColor = 'var(--border-strong)' }}
-                >{g.name}</button>
-            ))}
-        </div>
-    )
-}
-
-function MovieGrid({ movies, cardWidth = 160 }: { movies: SimilarMovie[]; cardWidth?: number }) {
-    const gap = 12
-    const posterHeight = Math.round(cardWidth * 1.5)
-    return (
-        <div style={{ display: 'flex', gap, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none' }} className="[&::-webkit-scrollbar]:hidden">
-            {movies.map(s => (
-                <Link key={s.id} to={`/movie/${s.id}`} className="group" style={{ flexShrink: 0, width: cardWidth, textDecoration: 'none' }}>
-                    <div style={{ width: cardWidth, height: posterHeight, borderRadius: 10, overflow: 'hidden', marginBottom: 8, background: 'var(--surface-2)' }}>
-                        {s.poster_path
-                            ? <img src={`https://image.tmdb.org/t/p/w200${s.poster_path}`} alt={s.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg-subtle)', fontSize: 20 }}>🎬</div>
+        <div className="flex gap-3 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden">
+            {movies.map(m => (
+                <Link key={m.id} to={`/movie/${m.id}`} className="group shrink-0 w-28">
+                    <div className="w-28 h-40 rounded-xl overflow-hidden mb-2 bg-[color:var(--surface-2)]">
+                        {m.poster_path
+                            ? <img src={`https://image.tmdb.org/t/p/w200${m.poster_path}`} alt={m.title}
+                                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                            : <div className="w-full h-full flex items-center justify-center text-[color:var(--fg-subtle)]">
+                                <Film size={24} />
+                            </div>
                         }
                     </div>
-                    <p className="text-xs leading-tight line-clamp-2" style={{ color: 'var(--fg-muted)' }}>{s.title}</p>
-                    {s.release_date && <p style={{ fontSize: 10, marginTop: 2, color: 'var(--fg-subtle)' }}>{s.release_date.slice(0, 7)}</p>}
+                    <p className="text-xs leading-tight line-clamp-2 text-[color:var(--fg-muted)] group-hover:text-[color:var(--fg)] transition-colors">
+                        {m.title}
+                    </p>
+                    {m.release_date && (
+                        <p className="text-[10px] mt-0.5 text-[color:var(--fg-subtle)]">{m.release_date.slice(0, 7)}</p>
+                    )}
                 </Link>
             ))}
         </div>
     )
 }
 
-function DetailRow({ label, value, underline, muted }: { label: string; value: string; underline?: boolean; muted?: boolean }) {
-    return (
-        <div style={{ display: 'flex', gap: 8, fontSize: 14 }}>
-            <dt style={{ flexShrink: 0, width: 176, color: 'var(--fg-subtle)' }}>{label}:</dt>
-            <dd style={{ textDecoration: underline ? 'underline' : 'none', color: muted ? 'var(--fg-muted)' : 'var(--fg)' }}>{value}</dd>
-        </div>
-    )
-}
-
 function PageSkeleton() {
     return (
-        <div style={{ minHeight: '100vh', padding: 24 }} className="animate-pulse">
-            <div style={{ maxWidth: '90%', margin: '0 auto', display: 'grid', gap: 40, gridTemplateColumns: '240px 1fr 320px' }}>
-                <div style={{ aspectRatio: '2/3', borderRadius: 14, background: 'var(--surface-2)' }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div style={{ height: 36, width: '60%', borderRadius: 8, background: 'var(--surface-2)' }} />
-                    {Array(6).fill(0).map((_, i) => <div key={i} style={{ height: 14, width: '50%', borderRadius: 4, background: 'var(--surface-2)' }} />)}
+        <div className="min-h-screen p-6 animate-pulse">
+            <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-[220px_1fr_300px] gap-8">
+                <div className="aspect-[2/3] rounded-2xl bg-[color:var(--surface-2)]" />
+                <div className="flex flex-col gap-4">
+                    <div className="h-8 w-2/3 rounded-lg bg-[color:var(--surface-2)]" />
+                    {Array(6).fill(0).map((_, i) => (
+                        <div key={i} className="h-4 w-1/2 rounded bg-[color:var(--surface-2)]" />
+                    ))}
                 </div>
-                <div style={{ height: 360, borderRadius: 16, background: 'var(--surface-2)' }} />
+                <div className="h-80 rounded-2xl bg-[color:var(--surface-2)]" />
             </div>
         </div>
     )
@@ -130,12 +116,11 @@ function PageSkeleton() {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function MoviePage() {
-    const { id }       = useParams<{ id: string }>()
-    const { lang }     = useApp()
-    const navigate     = useNavigate()
-    const t            = LABELS[lang]
+    const { id }    = useParams<{ id: string }>()
+    const { lang }  = useApp()
+    const navigate  = useNavigate()
+    const t         = LABELS[lang]
 
-    // TMDB state
     const [movie, setMovie]           = useState<MovieDetail | null>(null)
     const [director, setDirector]     = useState('')
     const [cast, setCast]             = useState<CastMember[]>([])
@@ -144,13 +129,11 @@ export default function MoviePage() {
     const [comingSoon, setComingSoon] = useState<SimilarMovie[]>([])
     const [loading, setLoading]       = useState(true)
 
-    // Schedule state
-    const [allCinemasRaw, setAllCinemasRaw]     = useState<any[]>([])
-    const [cinemaSchedule, setCinemaSchedule]   = useState<ScheduleCinema[]>([])
-    const [userCity, setUserCity]               = useState<string | null>(null)
-    const [scheduleDate, setScheduleDate]       = useState(new Date().toISOString().slice(0, 10))
+    const [allCinemasRaw, setAllCinemasRaw]   = useState<any[]>([])
+    const [cinemaSchedule, setCinemaSchedule] = useState<ScheduleCinema[]>([])
+    const [userCity, setUserCity]             = useState<string | null>(null)
+    const [scheduleDate, setScheduleDate]     = useState(new Date().toISOString().slice(0, 10))
 
-    // ── Load TMDB ──────────────────────────────────────────────────────────
     useEffect(() => {
         if (!id) return
         setLoading(true)
@@ -180,41 +163,29 @@ export default function MoviePage() {
         }).catch(() => setMovie(null)).finally(() => setLoading(false))
     }, [id, lang])
 
-    // ── Load all cinemas from Firebase (once) ──────────────────────────────
     useEffect(() => {
         if (!id) return
         const movieIdNum = Number(id)
-
         getDocs(collection(db, 'cinemas')).then(snapshot => {
             const cinemas = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
             setAllCinemasRaw(cinemas)
-
-            // Определяем город — первый где вообще есть хоть один сеанс этого фильма (любая дата)
             for (const c of cinemas as any[]) {
                 const has = (c.sessions ?? []).some((s: any) => s.movieId === movieIdNum)
-                if (has) {
-                    setUserCity(c.city)
-                    break
-                }
+                if (has) { setUserCity(c.city); break }
             }
         })
     }, [id])
 
-    // ── Recalculate schedule when date / city / cinemas change ─────────────
     useEffect(() => {
         if (!allCinemasRaw.length || !id) return
         const movieIdNum = Number(id)
-
-        // Фильтруем по выбранному городу
         const filtered = userCity
             ? allCinemasRaw.filter((c: any) => c.city?.toLowerCase() === userCity.toLowerCase())
             : allCinemasRaw
 
         const schedule: ScheduleCinema[] = (filtered as any[])
             .map((c: any) => ({
-                id:   c.id,
-                name: c.name,
-                city: c.city ?? '',
+                id: c.id, name: c.name, city: c.city ?? '',
                 sessions: (c.sessions ?? [])
                     .filter((s: any) => s.movieId === movieIdNum && s.date === scheduleDate)
                     .sort((a: any, b: any) => a.time.localeCompare(b.time))
@@ -225,10 +196,9 @@ export default function MoviePage() {
         setCinemaSchedule(schedule)
     }, [allCinemasRaw, userCity, scheduleDate, id])
 
-    // ── Derived ─────────────────────────────────────────────────────────────
     if (loading) return <PageSkeleton />
-    if (!movie)  return (
-        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)' }}>
+    if (!movie) return (
+        <div className="min-h-screen flex items-center justify-center text-[color:var(--fg)]">
             <p>{t.notFound}</p>
         </div>
     )
@@ -248,203 +218,333 @@ export default function MoviePage() {
     const goToGenre = (genreId: number, genreName: string) =>
         navigate(`/movies?genre=${genreId}&genreName=${encodeURIComponent(genreName)}`)
 
-    // Все уникальные города из Firebase
     const allCities = Array.from(new Set((allCinemasRaw as any[]).map((c: any) => c.city).filter(Boolean))).sort() as string[]
 
-    // 7 дней для табов
     const dateTabs = Array.from({ length: 7 }, (_, i) => {
         const d = new Date()
         d.setDate(d.getDate() + i)
-        return { key: d.toISOString().slice(0, 10), day: d.getDate(), dayName: ['НД','ПН','ВТ','СР','ЧТ','ПТ','СБ'][d.getDay()], isToday: i === 0 }
+        return {
+            key: d.toISOString().slice(0, 10),
+            day: d.getDate(),
+            dayName: ['НД','ПН','ВТ','СР','ЧТ','ПТ','СБ'][d.getDay()],
+            isToday: i === 0,
+        }
     })
 
     return (
-        <div style={{ color: 'var(--fg)' }}>
-            <div style={{ maxWidth: '90%', margin: '0 auto', padding: '24px', minHeight: '100vh' }}>
+        <div className="min-h-screen text-[color:var(--fg)]">
+            <div className="max-w-[90%] mx-auto px-4 py-6 sm:px-6">
 
                 <Breadcrumbs items={[
-                    { label: 'Головна',  to: '/' },
-                    { label: 'Фільми',   to: '/movies' },
-                    { label: movie.title },   // ← текущая страница, без to
+                    { label: 'Головна', to: '/' },
+                    { label: 'Фільми',  to: '/movies' },
+                    { label: movie.title },
                 ]} />
 
+                {/* ── Основная сетка ── */}
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] lg:grid-cols-[220px_1fr_300px] gap-6 lg:gap-10">
 
-                <div style={{ display: 'grid', gap: 40, gridTemplateColumns: '2fr 5.5fr 2fr' }}>
-
-                    {/* ── Постер ─────────────────────────────────────────── */}
-                    <div>
-                        <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', marginBottom: 12 }}>
+                    {/* ── Постер ── */}
+                    <div className="flex flex-col gap-3">
+                        <div className="relative rounded-2xl overflow-hidden">
                             {poster
-                                ? <img src={poster} alt={movie.title} style={{ width: '100%', display: 'block' }} />
-                                : <div style={{ aspectRatio: '2/3', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg-subtle)', fontSize: 36 }}>🎬</div>
+                                ? <img src={poster} alt={movie.title} className="w-full block" />
+                                : <div className="aspect-[2/3] bg-[color:var(--surface-2)] flex items-center justify-center text-[color:var(--fg-subtle)]">
+                                    <Film size={40} />
+                                </div>
                             }
-                            <span style={{ position: 'absolute', bottom: 8, right: 8, background: '#dc2626', color: '#fff', fontSize: 11, fontWeight: 700, width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span className="absolute bottom-2 right-2 bg-red-600 text-white text-[11px] font-bold w-8 h-8 rounded-full flex items-center justify-center">
                                 {ageLimit}
                             </span>
                         </div>
-                        <button
-                            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 0', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--fg)', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'background 0.15s' }}
-                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
-                            onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                        >
+
+                        {/* Рейтинг под постером */}
+                        <div className="flex items-center gap-2 px-1">
+                            <Star size={16} className="text-yellow-400 fill-yellow-400" />
+                            <span className="text-lg font-bold text-[color:var(--fg)]">{userRating}%</span>
+                            <span className="text-xs text-[color:var(--fg-subtle)]">{t.userRating}</span>
+                        </div>
+
+                        <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl
+                                           bg-[color:var(--surface-2)] border border-[color:var(--border)]
+                                           text-[color:var(--fg)] text-sm font-medium
+                                           hover:bg-[color:var(--surface-3)] transition-colors">
                             ▶ {t.watchTrailer}
                         </button>
                     </div>
 
-                    {/* ── Деталі ─────────────────────────────────────────── */}
-                    <div style={{ minWidth: 0 }}>
-                        <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 24, letterSpacing: '-0.02em' }}>{movie.title}</h1>
-                        <dl style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            <DetailRow label={t.ageLimit}   value={ageLimit} underline />
+                    {/* ── Детали ── */}
+                    <div className="min-w-0">
+                        <h1 className="text-2xl sm:text-3xl font-bold mb-6 tracking-tight text-[color:var(--fg)]">
+                            {movie.title}
+                        </h1>
+
+                        <dl className="flex flex-col gap-3">
+                            <DetailRow label={t.ageLimit}   value={ageLimit} />
                             <DetailRow label={t.year}       value={year} />
-                            <DetailRow label={t.original}   value={movie.original_title} muted />
+                            <DetailRow label={t.original}   value={movie.original_title} />
                             <DetailRow label={t.director}   value={director} />
-                            <DetailRow label={t.userRating} value={`${userRating}%`} />
-                            <div style={{ display: 'flex', gap: 8, fontSize: 14, alignItems: 'flex-start' }}>
-                                <dt style={{ flexShrink: 0, width: 176, color: 'var(--fg-subtle)', paddingTop: 2 }}>{t.genre}:</dt>
-                                <dd><GenreTags genres={movie.genres} onGenreClick={goToGenre} title={t.allInGenre} /></dd>
+
+                            {/* Жанры — кликабельные теги */}
+                            <div className="flex gap-3 text-sm">
+                                <dt className="shrink-0 w-36 text-[color:var(--fg-subtle)] pt-0.5">{t.genre}:</dt>
+                                <dd className="flex flex-wrap gap-1.5">
+                                    {movie.genres.map(g => (
+                                        <button key={g.id} onClick={() => goToGenre(g.id, g.name)}
+                                                className="px-2.5 py-0.5 rounded-full text-xs border border-[color:var(--border-strong)]
+                                                           bg-[color:var(--surface-2)] text-[color:var(--fg)]
+                                                           hover:bg-yellow-400 hover:text-black hover:border-yellow-400 transition-all">
+                                            {g.name}
+                                        </button>
+                                    ))}
+                                </dd>
                             </div>
-                            <DetailRow label={t.duration}   value={duration} />
+
+                            <div className="flex gap-3 text-sm">
+                                <dt className="shrink-0 w-36 text-[color:var(--fg-subtle)]">{t.duration}:</dt>
+                                <dd className="flex items-center gap-1 text-[color:var(--fg)]">
+                                    <Clock size={13} className="text-[color:var(--fg-subtle)]" />
+                                    {duration}
+                                </dd>
+                            </div>
+
                             <DetailRow label={t.production} value={country} />
-                            <DetailRow label={t.language}   value={language} muted />
-                            {cast.length > 0 && <DetailRow label={t.cast} value={cast.map(c => c.name).join(', ')} />}
+
+                            <div className="flex gap-3 text-sm">
+                                <dt className="shrink-0 w-36 text-[color:var(--fg-subtle)]">{t.language}:</dt>
+                                <dd className="flex items-center gap-1 text-[color:var(--fg-muted)]">
+                                    <Globe size={13} className="text-[color:var(--fg-subtle)]" />
+                                    {language}
+                                </dd>
+                            </div>
+
+                            {cast.length > 0 && (
+                                <DetailRow label={t.cast} value={cast.map(c => c.name).join(', ')} />
+                            )}
                         </dl>
 
-                        <p style={{ marginTop: 28, lineHeight: 1.7, fontSize: 14, color: 'var(--fg-muted)' }}>{movie.overview}</p>
+                        {/* Описание */}
+                        {movie.overview && (
+                            <p className="mt-6 text-sm leading-relaxed text-[color:var(--fg-muted)]">
+                                {movie.overview}
+                            </p>
+                        )}
 
+                        {/* Расписание — только на мобилке/планшете (lg скрыто в сайдбаре) */}
+                        <div className="lg:hidden mt-8">
+                            <ScheduleBlock
+                                t={t} lang={lang}
+                                allCities={allCities} userCity={userCity} setUserCity={setUserCity}
+                                dateTabs={dateTabs} scheduleDate={scheduleDate} setScheduleDate={setScheduleDate}
+                                cinemaSchedule={cinemaSchedule} navigate={navigate}
+                            />
+                        </div>
+
+                        {/* Похожие фильмы */}
                         {similar.length > 0 && (
-                            <section style={{ marginTop: 40 }}>
-                                <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{t.similar}</h2>
-                                <MovieGrid movies={similar} cardWidth={160} />
+                            <section className="mt-10">
+                                <h2 className="text-sm font-semibold mb-3 text-[color:var(--fg)]">{t.similar}</h2>
+                                <MovieGrid movies={similar} />
                             </section>
                         )}
                         {sameGenre.length > 0 && (
-                            <section style={{ marginTop: 32 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                                    <h2 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>{t.sameGenre}{firstGenreName ? `: ${firstGenreName}` : ''}</h2>
+                            <section className="mt-8">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <h2 className="text-sm font-semibold text-[color:var(--fg)]">
+                                        {t.sameGenre}{firstGenreName ? `: ${firstGenreName}` : ''}
+                                    </h2>
                                     {firstGenreId && (
-                                        <button onClick={() => goToGenre(firstGenreId, firstGenreName)} style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                                        <button onClick={() => goToGenre(firstGenreId, firstGenreName)}
+                                                className="text-xs text-yellow-400 hover:text-yellow-300 transition-colors underline underline-offset-2">
                                             {t.allInGenre} →
                                         </button>
                                     )}
                                 </div>
-                                <MovieGrid movies={sameGenre} cardWidth={160} />
+                                <MovieGrid movies={sameGenre} />
                             </section>
                         )}
                         {comingSoon.length > 0 && (
-                            <section style={{ marginTop: 32, marginBottom: 40 }}>
-                                <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{t.comingSoon}</h2>
-                                <MovieGrid movies={comingSoon} cardWidth={160} />
+                            <section className="mt-8 mb-10">
+                                <h2 className="text-sm font-semibold mb-3 text-[color:var(--fg)]">{t.comingSoon}</h2>
+                                <MovieGrid movies={comingSoon} />
                             </section>
                         )}
                     </div>
 
-                    {/* ── Розклад сеансів ─────────────────────────────────── */}
-                    <div>
-                        <div className="rounded-2xl p-4 space-y-3 bg-white/5 border border-white/10">
-                            <h2 className="text-[15px] font-semibold">{t.schedule}</h2>
-
-                            {/* Вибір міста */}
-                            {allCities.length > 1 && (
-                                <div>
-                                    <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Місто</p>
-                                    <select
-                                        value={userCity ?? ''}
-                                        onChange={e => setUserCity(e.target.value)}
-                                        className="w-full rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-red-500 border border-white/10 bg-white/5"
-                                    >
-                                        {allCities.map(city => (
-                                            <option key={city} value={city} className="bg-zinc-900 text-white">{city}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            {/* Вибір дати */}
-                            <div>
-                                <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5">Дата</p>
-                                <div className="flex gap-1 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden">
-                                    {dateTabs.map(tab => {
-                                        const active = scheduleDate === tab.key
-                                        return (
-                                            <button
-                                                key={tab.key}
-                                                onClick={() => setScheduleDate(tab.key)}
-                                                className="shrink-0 flex flex-col items-center px-2 py-1.5 rounded-xl border transition-all duration-150 min-w-[36px]"
-                                                style={{
-                                                    background:   active ? '#dc2626' : 'rgba(255,255,255,0.04)',
-                                                    borderColor:  active ? '#dc2626' : 'rgba(255,255,255,0.1)',
-                                                    color:        active ? '#fff'    : '#9ca3af',
-                                                }}
-                                            >
-                                                <span className="text-[9px] opacity-70 uppercase">{tab.isToday ? 'Сьог' : tab.dayName}</span>
-                                                <span className="text-sm font-bold leading-none mt-0.5">{tab.day}</span>
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Підпис міста та дати */}
-                            {userCity && (
-                                <p className="text-[11px] text-zinc-500 flex items-center gap-1">
-                                    📍 {userCity} · {new Date(scheduleDate + 'T00:00:00').toLocaleDateString(
-                                    lang === 'uk' ? 'uk-UA' : lang === 'ru' ? 'ru-RU' : 'en-US',
-                                    { day: 'numeric', month: 'long' }
-                                )}
-                                </p>
-                            )}
-
-                            {/* Список кінотеатрів */}
-                            {cinemaSchedule.length === 0 ? (
-                                <div className="flex flex-col items-center py-6 gap-2 text-zinc-600">
-                                    <span className="text-3xl">🎬</span>
-                                    <p className="text-xs">Немає сеансів на цю дату</p>
-                                    <p className="text-[10px] text-zinc-700">Спробуйте іншу дату або місто</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {cinemaSchedule.map(cinema => (
-                                        <div key={cinema.id} className="space-y-2">
-                                            <Link
-                                                to={`/cinema/${cinema.id}`}
-                                                className="text-sm font-semibold text-white hover:text-red-400 transition-colors flex items-center justify-between group"
-                                            >
-                                                <span>{cinema.name}</span>
-                                                <span className="text-zinc-600 group-hover:text-red-400 transition-colors text-xs">→</span>
-                                            </Link>
-                                            <div className="grid grid-cols-3 gap-1.5">
-                                                {cinema.sessions.map((s, i) => {
-                                                    const color = fmtColor(s.format)
-                                                    return (
-                                                        <button
-                                                            key={i}
-                                                            onClick={() => navigate(`/cart/${cinema.id}_${s.sessionId}/seatplan`)}
-                                                            className="flex flex-col items-center py-2 px-1 rounded-xl border transition-all duration-150"
-                                                            style={{ borderColor: `${color}33`, background: `${color}11` }}
-                                                            onMouseEnter={e => { e.currentTarget.style.background = `${color}25`; e.currentTarget.style.borderColor = `${color}88` }}
-                                                            onMouseLeave={e => { e.currentTarget.style.background = `${color}11`; e.currentTarget.style.borderColor = `${color}33` }}
-                                                        >
-                                                            <span className="text-red-400 font-bold text-[13px] leading-none">{s.time}</span>
-                                                            <span
-                                                                className="text-[9px] mt-1 font-semibold w-full text-center overflow-hidden text-ellipsis whitespace-nowrap px-1"
-                                                                style={{ color }}
-                                                            >
-                                                                {s.format}
-                                                            </span>
-                                                        </button>
-                                                    )
-                                                })}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                    {/* ── Расписание — сайдбар (только lg+) ── */}
+                    <div className="hidden lg:block">
+                        <div className="sticky top-24">
+                            <ScheduleBlock
+                                t={t} lang={lang}
+                                allCities={allCities} userCity={userCity} setUserCity={setUserCity}
+                                dateTabs={dateTabs} scheduleDate={scheduleDate} setScheduleDate={setScheduleDate}
+                                cinemaSchedule={cinemaSchedule} navigate={navigate}
+                            />
                         </div>
                     </div>
 
                 </div>
             </div>
+        </div>
+    )
+}
+
+
+function DetailRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+    return (
+        <div className="flex gap-3 text-sm">
+            <dt className="shrink-0 w-36 text-[0.6875rem]" style={{ color: 'var(--fg-subtle)' }}>{label}:</dt>
+            <dd className="text-[0.8125rem]" style={{ color: accent ? 'var(--accent)' : 'var(--fg)', fontWeight: accent ? 600 : 400 }}>
+                {value}
+            </dd>
+        </div>
+    )
+}
+
+function ScheduleBlock({ t, lang, allCities, userCity, setUserCity, dateTabs, scheduleDate, setScheduleDate, cinemaSchedule, navigate }: {
+    t: Record<string, string>
+    lang: string
+    allCities: string[]
+    userCity: string | null
+    setUserCity: (c: string) => void
+    dateTabs: { key: string; day: number; dayName: string; isToday: boolean }[]
+    scheduleDate: string
+    setScheduleDate: (d: string) => void
+    cinemaSchedule: ScheduleCinema[]
+    navigate: (path: string) => void
+}) {
+    return (
+        <div className="rounded-2xl p-4 space-y-4"
+             style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{t.schedule}</h2>
+
+            {/* Город */}
+            {allCities.length > 1 && (
+                <div>
+                    <p className="text-[0.625rem] uppercase tracking-widest mb-1.5"
+                       style={{ color: 'var(--fg-subtle)' }}>
+                        {t.city}
+                    </p>
+                    <select
+                        value={userCity ?? ''}
+                        onChange={e => setUserCity(e.target.value)}
+                        className="w-full rounded-lg px-3 py-1.5 text-xs outline-none"
+                        style={{
+                            color: 'var(--fg)',
+                            background: 'var(--surface-2)',
+                            border: '1px solid var(--border)',
+                        }}
+                    >
+                        {allCities.map(city => (
+                            <option key={city} value={city}>{city}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
+
+            {/* Дата */}
+            <div>
+                <p className="text-[0.625rem] uppercase tracking-widest mb-2"
+                   style={{ color: 'var(--fg-subtle)' }}>{t.date}</p>
+                <div className="flex gap-1 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
+                    {dateTabs.map(tab => {
+                        const active = scheduleDate === tab.key
+                        return (
+                            <button
+                                key={tab.key}
+                                onClick={() => setScheduleDate(tab.key)}
+                                className="shrink-0 flex flex-col items-center px-2 py-1.5 rounded-xl border min-w-[2.375rem] transition-all duration-200"
+                                style={active ? {
+                                    background: 'var(--accent)',
+                                    borderColor: 'var(--accent)',
+                                    color: 'var(--accent-fg)',
+                                } : {
+                                    background: 'var(--surface-2)',
+                                    borderColor: 'var(--border)',
+                                    color: 'var(--fg-muted)',
+                                }}
+                            >
+                                <span className="text-[0.5625rem] uppercase opacity-70">
+                                    {tab.isToday ? t.today : tab.dayName}
+                                </span>
+                                <span className="text-sm font-bold leading-none mt-0.5">{tab.day}</span>
+                            </button>
+                        )
+                    })}
+                </div>
+            </div>
+
+            {/* Подпись города */}
+            {userCity && (
+                <p className="text-[0.6875rem] flex items-center gap-1"
+                   style={{ color: 'var(--fg-subtle)' }}>
+                    <MapPin size={11} />
+                    {userCity} · {new Date(scheduleDate + 'T00:00:00').toLocaleDateString(
+                    lang === 'uk' ? 'uk-UA' : lang === 'ru' ? 'ru-RU' : 'en-US',
+                    { day: 'numeric', month: 'long' }
+                )}
+                </p>
+            )}
+
+            {/* Список кинотеатров */}
+            {cinemaSchedule.length === 0 ? (
+                <div className="flex flex-col items-center py-8 gap-2">
+                    <Film size={32} style={{ color: 'var(--fg-subtle)' }} />
+                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{t.noSessions}</p>
+                    <p className="text-[0.625rem]" style={{ color: 'var(--fg-subtle)' }}>{t.tryOther}</p>
+                </div>
+            ) : (
+                <div className="space-y-5">
+                    {cinemaSchedule.map(cinema => (
+                        <div key={cinema.id}>
+                            <Link
+                                to={`/cinema/${cinema.id}`}
+                                className="flex items-center justify-between mb-2 group"
+                            >
+                                <span className="text-sm font-semibold transition-colors"
+                                      style={{ color: 'var(--fg)' }}
+                                      onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                                      onMouseLeave={e => e.currentTarget.style.color = 'var(--fg)'}>
+                                    {cinema.name}
+                                </span>
+                                <ChevronRight size={14} style={{ color: 'var(--fg-subtle)' }} />
+                            </Link>
+                            <div className="grid grid-cols-3 gap-1.5">
+                                {cinema.sessions.map((s, i) => {
+                                    const color = fmtColor(s.format)
+                                    return (
+                                        <button
+                                            key={i}
+                                            onClick={() => navigate(`/cart/${cinema.id}_${s.sessionId}/seatplan`)}
+                                            className="flex flex-col items-center py-2 px-1 rounded-xl border hover:scale-[1.03] active:scale-95"
+                                            style={{ borderColor: `${color}33`, background: `${color}11` }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.background = `${color}25`
+                                                e.currentTarget.style.borderColor = `${color}88`
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.background = `${color}11`
+                                                e.currentTarget.style.borderColor = `${color}33`
+                                            }}
+                                        >
+                                            <span className="text-[0.8125rem] font-bold leading-none"
+                                                  style={{ color: 'var(--fg)' }}>
+                                                {s.time}
+                                            </span>
+                                            {s.format && (
+                                                <span className="text-[0.5625rem] mt-1 font-semibold truncate w-full text-center px-1"
+                                                      style={{ color }}>
+                                                    {s.format}
+                                                </span>
+                                            )}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     )
 }
