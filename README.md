@@ -1,4 +1,5 @@
 # Cinema App 
+https://0HMaxim.github.io/cinema-app/
 
 Web app for booking cinema tickets online.
 Connected to world TMDB movie API with search by title and filtering.
